@@ -4,16 +4,17 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx" and "postgres"
 )
 
 type Activity struct {
 	Id int `json:"id"`
-	Title string `json:"title"`
-	Category string `json:"category"`
-	Description string `json:"description"`
-	ActivityDate time.Time `json:"activity_date"`
+	Title string `json:"title" validate:"required"`
+	Category string `json:"category" validate:"required,oneof=TASK EVENT"`
+	Description string `json:"description" validate:"required"`
+	ActivityDate time.Time `json:"activity_date" validate:"required"`
 	Status string `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -32,9 +33,12 @@ func main() {
 	defer db.Close()
 
 	app := fiber.New()
+	validate := validator.New()
 
 	app.Get("/activities", getActivities)
-	app.Post("/activities", createActivity)
+	app.Post("/activities", createActivity(validate))
+	app.Put("/activities/:id", updateActivity(validate))
+	app.Delete("/activities/:id", deleteActivity)
 
 	app.Listen(":8081")
 }
@@ -97,30 +101,75 @@ func getActivities(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(activities)
 }
 
-func createActivity(c *fiber.Ctx) error {
-	var activity Activity
-
-	err := c.BodyParser(&activity)
-
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+func createActivity(validate *validator.Validate) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var activity Activity
+	
+		err := c.BodyParser(&activity)
+	
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+		}
+	
+		if err = validate.Struct(&activity); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+		}
+	
+		sqlStatement := `INSERT INTO activities(title, category, description, activity_date, status) VALUES($1, $2, $3, $4, $5) RETURNING id`
+	
+		err = db.QueryRow(
+			sqlStatement,
+			activity.Title,
+			activity.Category,
+			activity.Description,
+			activity.ActivityDate,
+			activity.Status,
+		).Scan(&activity.Id)
+	
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+		}
+	
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "Successfully create activity"})
 	}
-
-	sqlStatement := `INSERT INTO activities(title, category, description, activity_date, status) VALUES($1, $2, $3, $4, $5) RETURNING id`
-
-	err = db.QueryRow(
-		sqlStatement,
-		activity.Title,
-		activity.Category,
-		activity.Description,
-		activity.ActivityDate,
-		activity.Status,
-	).Scan(&activity.Id)
-
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "Successfully create activity"})
 }
 
+
+func updateActivity(validate * validator.Validate) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		id := c.Params("id")
+	
+		var activity Activity
+		
+		err := c.BodyParser(&activity)
+	
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+		}
+	
+		if err = validate.Struct(&activity); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+		}
+
+		sqlStatement := `UPDATE activities SET title = $1, category = $2, description = $3, activity_date = $4 WHERE id = $5 RETURNING id`
+
+		err = db.QueryRow(
+			sqlStatement,
+			activity.Title,
+			activity.Category,
+			activity.Description,
+			activity.ActivityDate,
+			id,
+		).Scan(&activity.Id)
+
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Successfully update activity"})
+	}
+}
+
+func deleteActivity() error {
+
+}
