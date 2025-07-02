@@ -170,6 +170,16 @@ func updateActivity(validate * validator.Validate) fiber.Handler {
 	}
 }
 
-func deleteActivity() error {
+func deleteActivity(c *fiber.Ctx) error {
+	id := c.Params("id")
 
+	sqlStatement := `DELETE FROM activities WHERE id = $1`
+
+	_, err := db.Exec(sqlStatement, id)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Successfully delete activity"})
 }
