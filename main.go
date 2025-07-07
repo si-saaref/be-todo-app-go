@@ -2,11 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx" and "postgres"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 type Activity struct {
@@ -44,8 +49,19 @@ func main() {
 }
 
 func initDB() (*sql.DB, error) {
-	// connStr := "postgresql://postgres:6imCmzMoRsAyLYbB@db.lrvfkszadiibupddigro.supabase.co:5432/postgres?sslmode=require&statement_cache_mode=describe"
-	connStr := "user=postgres.lrvfkszadiibupddigro password=6imCmzMoRsAyLYbB host=aws-0-ap-southeast-1.pooler.supabase.com port=6543 dbname=postgres statement_cache_mode=describe"
+	errEnv := godotenv.Load()
+
+	if errEnv != nil {
+		log.Fatal("Error loading .env file")
+		return nil, errEnv
+	}
+
+	dbName := os.Getenv("DB_NAME")
+	dbPass := os.Getenv("DB_PASSWORD")
+
+	fmt.Println("DB DATA => ", dbName, dbPass)
+	// connStr := "postgresql://postgres:dbPass@db.dbName.supabase.co:5432/postgres?sslmode=require&statement_cache_mode=describe"
+	connStr := fmt.Sprintf("user=postgres.%s password=%s host=aws-0-ap-southeast-1.pooler.supabase.com port=6543 dbname=postgres statement_cache_mode=describe", dbName, dbPass)
 
 	db,err := sql.Open("pgx", connStr)
 
