@@ -35,6 +35,7 @@ func main() {
 		panic(err)
 	}
 
+	// * A defer statement pending the execution of a function until the surrounding (below statement of the defer) function returns / exe
 	defer db.Close()
 
 	app := fiber.New()
@@ -49,6 +50,7 @@ func main() {
 }
 
 func initDB() (*sql.DB, error) {
+	// https://github.com/joho/godotenv
 	errEnv := godotenv.Load()
 
 	if errEnv != nil {
@@ -199,3 +201,5 @@ func deleteActivity(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Successfully delete activity"})
 }
+
+// https://dbdiagram.io/home
